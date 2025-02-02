@@ -10,6 +10,7 @@ def constants() -> None:
     HEIGHT = 600  # Reduced to 600 for a more typical aspect ratio
 
 class VBO:
+    # From  VBO: https://community.khronos.org/t/binding-orders-to-update-information-in-multiple-vao-vbo/75066
     def __init__(self, data):
         self.vbo_id = glGenBuffers(1)
         self.bind()
@@ -26,10 +27,11 @@ class VBO:
 
 def generate_helix_points(num_points=100, radius=1.5, twist=2.0):
     """
+    #from https://learnopengl.com/Getting-started/Transformations
     Generates interleaved points for two helix strands.
     For each iteration i:
-      - One point on the main strand (x1, y, z1)
-      - One point on the complementary strand (x2, y, z2)
+      One point on the main strand (x1, y, z1)
+      One point on the complementary strand (x2, y, z2)
     Returns a NumPy array of shape (num_points*2, 3).
     """
     points = []
@@ -58,6 +60,8 @@ def draw_helix(vbo, num_vertices):
     glColor3f(0, 0, 1)  # Blue color
     glDrawArrays(GL_LINE_STRIP, 0, num_vertices)
     
+    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, (0.2, 0.2, 0.8, 1.0))  # Blue material
+
     glDisableClientState(GL_VERTEX_ARRAY)
     vbo.unbind()
 
@@ -69,8 +73,7 @@ def main():
     screen = pg.display.set_mode((WIDTH, HEIGHT), pg.OPENGL | pg.DOUBLEBUF)
     pg.display.set_caption("DNA Helix Visualization")
 
-
-    # -------- Codebase from https://learnopengl.com/Getting-started/Hello-Triangle
+    # -------- Codebase from https://learnopengl.com/Getting-started/
     # Pake ini untuk setup Matrix dan GL
     # ---- Setup Projection Matrix ----
     glMatrixMode(GL_PROJECTION)
@@ -85,6 +88,14 @@ def main():
     #Aktifin GL 
     glEnable(GL_DEPTH_TEST) 
     glClearColor(1.0, 1.0, 1.0, 1.0)
+
+    # Aktifin Lighting biar terang gitu
+    # from https://learnopengl.com/Lighting/Colors
+    # from https://www.khronos.org/opengl/wiki/how_lighting_works
+    glEnable(GL_LIGHTING)
+    glLightfv(GL_LIGHT0, GL_POSITION, ((5.0, 5.0, 5.0, 1.0)))
+    glLightfv(GL_LIGHT0, GL_AMBIENT, (0.2, 0.2, 0.2, 1.0))
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.8, 0.8, 0.8, 1.0))
     # ---
  
 
@@ -113,6 +124,13 @@ def main():
                     rotation[0] -= 5
                 elif event.key == pg.K_DOWN:
                     rotation[0] += 5
+                
+                elif event.key == pg.K_z:
+                    zoom += 0.5
+                elif event.key == pg.K_x:
+                    zoom -= 0.5
+                elif event.key == pg.K_SPACE:
+                    animation_speed = 0 if animation_speed else 0.6
 
         # Clear buffers
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -123,7 +141,7 @@ def main():
 
         glTranslatef(0.0, current_offset, 0.0)
 
-        # Apply any rotations from keyboard input
+        # Buat rotasi keyboard
         glRotatef(rotation[0], 1, 0, 0) 
         glRotatef(rotation[1], 0, 1, 0) 
 
