@@ -5,155 +5,156 @@ from OpenGL.GLU import *
 
 def constants() -> None:
     global WIDTH, HEIGHT
-    # Screen size
     WIDTH = 800
-    HEIGHT = 600  # Reduced to 600 for a more typical aspect ratio
+    HEIGHT = 600
 
 class VBO:
-    # From  VBO: https://community.khronos.org/t/binding-orders-to-update-information-in-multiple-vao-vbo/75066
-    def __init__(self, data):
-        self.vbo_id = glGenBuffers(1)
-        self.bind()
-        glBufferData(GL_ARRAY_BUFFER, data.nbytes, data, GL_STATIC_DRAW)
-    
-    def bind(self):
-        glBindBuffer(GL_ARRAY_BUFFER, self.vbo_id)
-    
-    def unbind(self):
-        glBindBuffer(GL_ARRAY_BUFFER, 0)
+    def __init__(self, vertices, normals=None):
+        self.vertex_vbo = glGenBuffers(1)
+        glBindBuffer(GL_ARRAY_BUFFER, self.vertex_vbo)
+        glBufferData(GL_ARRAY_BUFFER, vertices.nbytes, vertices, GL_STATIC_DRAW)
+        
+        self.normal_vbo = None
+        if normals is not None:
+            self.normal_vbo = glGenBuffers(1)
+            glBindBuffer(GL_ARRAY_BUFFER, self.normal_vbo)
+            glBufferData(GL_ARRAY_BUFFER, normals.nbytes, normals, GL_STATIC_DRAW)
     
     def delete(self):
-        glDeleteBuffers(1, [self.vbo_id])
+        glDeleteBuffers(1, [self.vertex_vbo])
+        if self.normal_vbo:
+            glDeleteBuffers(1, [self.normal_vbo])
 
-def generate_helix_points(num_points=100, radius=1.5, twist=2.0):
-    """
-    #from https://learnopengl.com/Getting-started/Transformations
-    Generates interleaved points for two helix strands.
-    For each iteration i:
-      One point on the main strand (x1, y, z1)
-      One point on the complementary strand (x2, y, z2)
-    Returns a NumPy array of shape (num_points*2, 3).
-    """
-    points = []
-    for i in range(num_points):
-        angle = i * twist * np.pi / num_points
-        y = -i * 0.1 
-
-        # Main strand
-        x1 = radius * np.cos(angle)
-        z1 = radius * np.sin(angle)
-        
-        x2 = radius * np.cos(angle + np.pi)
-        z2 = radius * np.sin(angle + np.pi)
-        
-        points.extend([(x1, y, z1), (x2, y, z2)])
+def generate_helix_cylinders(num_segments=100, radius=0.3, helix_radius=1.5):
+    vertices = []
+    normals = []
     
-    return np.array(points, dtype=np.float32)
+    for i in range(num_segments):
+        angle = 2 * np.pi * i / num_segments
+        y = -i * 0.1
+        
+        # Helix direction vector
+        dx = -helix_radius * np.sin(angle)
+        dz = helix_radius * np.cos(angle)
+        direction = np.array([dx, 0, dz])
+        direction /= np.linalg.norm(direction)
+        
+        # Create circle around helix path
+        for circle_angle in np.linspace(0, 2*np.pi, 16):
+            cx = radius * np.cos(circle_angle)
+            cz = radius * np.sin(circle_angle)
+            
+            # Calculate vertex position
+            vertex = np.array([
+                helix_radius * np.cos(angle) + cx * direction[0],
+                y,
+                helix_radius * np.sin(angle) + cx * direction[2]
+            ])
+            
+            # Normal calculation
+            normal = vertex - np.array([helix_radius * np.cos(angle), y, helix_radius * np.sin(angle)])
+            normal /= np.linalg.norm(normal)
+            
+            vertices.append(vertex)
+            normals.append(normal)
+    
+    return np.array(vertices, dtype=np.float32), np.array(normals, dtype=np.float32)
 
-# Gambar helix pake VBO
-# Diambil dari https://learnopengl.com/Getting-started/Hello-Triangle
 def draw_helix(vbo, num_vertices):
-    vbo.bind()
+    # Set material properties
+    glMaterialfv(GL_FRONT, GL_AMBIENT, (0.2, 0.2, 0.2, 1.0))
+    glMaterialfv(GL_FRONT, GL_DIFFUSE, (0.8, 0.8, 0.8, 1.0))
+    glMaterialfv(GL_FRONT, GL_SPECULAR, (1.0, 1.0, 1.0, 1.0))
+    glMaterialf(GL_FRONT, GL_SHININESS, 50.0)
+
+    # Bind and draw VBO
+    glBindBuffer(GL_ARRAY_BUFFER, vbo.vertex_vbo)
     glEnableClientState(GL_VERTEX_ARRAY)
     glVertexPointer(3, GL_FLOAT, 0, None)
     
-    glColor3f(0, 0, 1)  # Blue color
-    glDrawArrays(GL_LINE_STRIP, 0, num_vertices)
+    if vbo.normal_vbo:
+        glBindBuffer(GL_ARRAY_BUFFER, vbo.normal_vbo)
+        glEnableClientState(GL_NORMAL_ARRAY)
+        glNormalPointer(GL_FLOAT, 0, None)
     
-    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, (0.2, 0.2, 0.8, 1.0))  # Blue material
-
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, num_vertices)
+    
     glDisableClientState(GL_VERTEX_ARRAY)
-    vbo.unbind()
+    if vbo.normal_vbo:
+        glDisableClientState(GL_NORMAL_ARRAY)
 
 def main():
     pg.init()
     constants()
     
-    # Create an OpenGL-capable window
     screen = pg.display.set_mode((WIDTH, HEIGHT), pg.OPENGL | pg.DOUBLEBUF)
     pg.display.set_caption("DNA Helix Visualization")
 
-    # -------- Codebase from https://learnopengl.com/Getting-started/
-    # Pake ini untuk setup Matrix dan GL
-    # ---- Setup Projection Matrix ----
+    # Projection setup
     glMatrixMode(GL_PROJECTION)
-    glLoadIdentity()
-    gluPerspective(45, WIDTH / HEIGHT, 0.1, 50.0)
-
-
-    # ---- Setup Modelview Matrix ----
+    gluPerspective(45, WIDTH/HEIGHT, 0.1, 50.0)
     glMatrixMode(GL_MODELVIEW)
-    glLoadIdentity()
-
-    #Aktifin GL 
-    glEnable(GL_DEPTH_TEST) 
+    
+    # OpenGL configuration
+    glEnable(GL_DEPTH_TEST)
     glClearColor(1.0, 1.0, 1.0, 1.0)
-
-    # Aktifin Lighting biar terang gitu
-    # from https://learnopengl.com/Lighting/Colors
-    # from https://www.khronos.org/opengl/wiki/how_lighting_works
+    glShadeModel(GL_SMOOTH)
+    
+    # Lighting setup
     glEnable(GL_LIGHTING)
-    glLightfv(GL_LIGHT0, GL_POSITION, ((5.0, 5.0, 5.0, 1.0)))
+    glEnable(GL_LIGHT0)
+    glLightfv(GL_LIGHT0, GL_POSITION, (5.0, 5.0, 5.0, 1.0))
     glLightfv(GL_LIGHT0, GL_AMBIENT, (0.2, 0.2, 0.2, 1.0))
     glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.8, 0.8, 0.8, 1.0))
-    # ---
- 
+    glLightfv(GL_LIGHT0, GL_SPECULAR, (1.0, 1.0, 1.0, 1.0))
 
-    helix_points = generate_helix_points()
-    vbo = VBO(helix_points)
-    num_vertices = len(helix_points)
+    # Generate geometry
+    vertices, normals = generate_helix_cylinders()
+    vbo = VBO(vertices, normals)
+    num_vertices = len(vertices)
 
+    # Animation variables
     rotation = [0, 0]
-    animation_speed = 0.05 
+    animation_speed = 0.05
     current_offset = 0.0
+    zoom = -5.0
 
     clock = pg.time.Clock()
     running = True
+    
     while running:
         for event in pg.event.get():
-            if event.type == pg.QUIT:
+            if event.type == pg.QUIT or (event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE):
                 running = False
             elif event.type == pg.KEYDOWN:
-                if event.key == pg.K_ESCAPE:
-                    running = False
-                elif event.key == pg.K_LEFT:
-                    rotation[1] -= 5
-                elif event.key == pg.K_RIGHT:
-                    rotation[1] += 5
-                elif event.key == pg.K_UP:
-                    rotation[0] -= 5
-                elif event.key == pg.K_DOWN:
-                    rotation[0] += 5
-                
-                elif event.key == pg.K_z:
-                    zoom += 0.5
-                elif event.key == pg.K_x:
-                    zoom -= 0.5
-                elif event.key == pg.K_SPACE:
-                    animation_speed = 0 if animation_speed else 0.6
+                if event.key == pg.K_LEFT: rotation[1] -= 5
+                elif event.key == pg.K_RIGHT: rotation[1] += 5
+                elif event.key == pg.K_UP: rotation[0] -= 5
+                elif event.key == pg.K_DOWN: rotation[0] += 5
+                elif event.key == pg.K_z: zoom += 0.5
+                elif event.key == pg.K_x: zoom -= 0.5
+                elif event.key == pg.K_SPACE: 
+                    animation_speed = 0 if animation_speed else 0.05
 
         # Clear buffers
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glLoadIdentity()
 
-        # Move camera/object
-        glTranslatef(0.0, 0.0, -5.0)
-
+        # Camera setup
+        glTranslatef(0.0, 0.0, zoom)
+        glRotatef(rotation[0], 1, 0, 0)
+        glRotatef(rotation[1], 0, 1, 0)
         glTranslatef(0.0, current_offset, 0.0)
 
-        # Buat rotasi keyboard
-        glRotatef(rotation[0], 1, 0, 0) 
-        glRotatef(rotation[1], 0, 1, 0) 
-
+        # Draw helix
         draw_helix(vbo, num_vertices)
 
+        # Update animation
         current_offset += animation_speed
 
         pg.display.flip()
-
         clock.tick(60)
 
-    # Cleanup
     vbo.delete()
     pg.quit()
 
