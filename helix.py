@@ -41,7 +41,7 @@ def init_pygame_opengl():
     """
     pg.init()
     pg.display.set_mode((WIDTH, HEIGHT), DOUBLEBUF | OPENGL)
-    pg.display.set_caption('Infinite Scrolling DNA - Pygame & PyOpenGL')
+    pg.display.set_caption('Infinite Scrolling DNA Sequence')
 
     glEnable(GL_DEPTH_TEST)
     glClearColor(0.0, 0.0, 0.0, 1.0)
