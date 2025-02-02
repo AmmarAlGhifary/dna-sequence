@@ -59,10 +59,6 @@ def init_pygame_opengl():
 
 
 def handle_input():
-    """
-    Handle user input from keyboard and mouse.
-    Adjust camera parameters or exit the application.
-    """
     global camera_radius, camera_phi, camera_theta, camera_height
 
     keys = pg.key.get_pressed()
@@ -70,46 +66,34 @@ def handle_input():
         pg.quit()
         sys.exit()
 
-    # Move closer/farther
     if keys[pg.K_w]:
         camera_radius -= movement_speed
     if keys[pg.K_s]:
         camera_radius += movement_speed
 
-    # Rotate left/right
     if keys[pg.K_a]:
         camera_phi -= math.radians(rotation_speed)
     if keys[pg.K_d]:
         camera_phi += math.radians(rotation_speed)
 
-    # Move camera up/down
     if keys[pg.K_q]:
         camera_height += movement_speed
     if keys[pg.K_e]:
         camera_height -= movement_speed
 
-    # Mouse drag for free rotation
     mouse_buttons = pg.mouse.get_pressed()
     if mouse_buttons[0]:
         mouse_rel = pg.mouse.get_rel()
         camera_phi += mouse_rel[0] * mouse_sensitivity * 0.01
         camera_theta += mouse_rel[1] * mouse_sensitivity * 0.01
     else:
-        # If not dragging, reset relative motion
         pg.mouse.get_rel()
 
 
 def update_animation():
-    """
-    Update any automatic DNA animations (scroll, twist, etc.)
-    """
     global auto_scroll_offset, auto_twist_angle
-    # Move the helix downward (decrement offset)
     auto_scroll_offset -= auto_scroll_speed
-    # Wrap offset so we never get a jump
     auto_scroll_offset %= helix_height
-
-    # Twist around the vertical (Y) axis
     auto_twist_angle += auto_twist_speed
 
 
@@ -165,12 +149,6 @@ def draw_single_dna_segment(y_offset):
 
 
 def draw_dna():
-    """
-    Draw multiple copies of the DNA segment so it appears infinite.
-    We draw at offsets in [-1, 0, +1] * helix_height around auto_scroll_offset.
-    """
-    # Because we use a modular offset, we can tile 3 segments:
-    # one in the "center", one above it, one below it.
     for k in [-1, 0, 1]:
         seg_offset = auto_scroll_offset + k * helix_height
         draw_single_dna_segment(seg_offset)
