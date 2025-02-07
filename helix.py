@@ -99,7 +99,7 @@ def init_pygame_opengl():
     # ------
     global texture_id
     try:
-        texture_id = load_texture("base_pair_texture.png")
+        texture_id = load_texture("uai_texture.png")
     except:
         print("Texture image not found or failed to load.")
         texture_id = None
